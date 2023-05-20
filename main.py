@@ -1,60 +1,90 @@
-import re
-import long_responses as long
+from typing import Final
+
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+
+
+TOKEN: Final = '6115974222:AAGrSQXYhLBDOeaJ7kozITYr9UOMW3SwqE0'
+BOT_USERNAME: Final = '@DrBanana520_Bot'
+
+
+# create a start command
+
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text('Hello there! I\'m Dr.Banana520_Bot')
+
+
+# Lets us use the /help command
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+     await update.message.reply_text('Do you feel like something wrong with your body, I am here to diagnose you')
+
+
+# Lets us use the /custom command
+async def custom_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text('This is a custom command')
 
 
 
-def messaga_probability(user_message, recognised_word, single_response=False, required_words=[]):
-    message_certainty = 0
-    has_required_words = True
+#handling responses
 
-    for word in user_message:
-        if word in recognised_word:
-            message_certainty += 1
+def handling_response(text: str) -> str:
+    # Create your own response logic
+    user_message = str(text).lower()
 
-    #percent of recognised words in a user message
-    percentage = float(message_certainty) / float(len(recognised_word))
+    if user_message in ("hello", "sup", "hey there", "good day"):
+        return 'Hey there, my name is Banana520_Bot!'
+
+    if user_message in ("help me", "help", "i need help"):
+        return "Let me help you to diagnose and type down your symptoms"
 
 
-    for word in required_words:
-        if word not in user_message:
-            has_required_words = False
-            break
+    return 'I don\'t understand'
 
-    if has_required_words or single_response:
-        return int(percentage*100)
+
+#handle messaging
+async def handling_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message_type: str = update.message.chat.type
+    text: str = update.message.text
+
+
+    print(f' User ({update.message.chat.id}) in {message_type}: "{text}"')
+
+    if message_type == 'group':
+        if BOT_USERNAME in text:
+            new_text: str = text.replace(BOT_USERNAME, '').strip()
+            response: str = handling_response(new_text)
+        else:
+            return 
     else:
-        return 0
-
-
-def check_all_messages(message):
-    highest_prob_list = {}
-
-    def response(bot_response, list_of_words, single_response=False, required_words=[]):
-        nonlocal highest_prob_list
-        highest_prob_list[bot_response] = messaga_probability(message, list_of_words, single_response, required_words)
-
-
-    # Response------------------------------------------
-    response('Hello', ['hello', 'hi','sup', 'hey'], single_response=True)
-    response('I\'m doing fine, and you?', ['how', 'are', 'you' ,'doing'], required_words=['how'])
-    response('Thank you!', ['i','love', 'code', 'palace'], required_words=['code', 'palace'])
+        response: str = handling_response(text)
     
+    print('Bot: ', response)
+    await update.message.reply_text(response)
 
-    response(long.R_EATING, ['what','you', 'eat'], required_words=['you', 'eat'])
+#errors
+async def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print(f'Update {update} caused error {context.error}')
+
+if __name__ == '__main__':
+    print('Starting bot...')
+    app = Application.builder().token(TOKEN).build()
+
+    #commands
+    app.add_handler(CommandHandler('start', start_command))
+    app.add_handler(CommandHandler('help', help_command))
+    app.add_handler(CommandHandler('custom', custom_command))
 
 
+    #messages
+    app.add_handler(MessageHandler(filters.TEXT, handling_message))
 
-    best_match = max(highest_prob_list, key=highest_prob_list.get)
-    #print(highest_prob_list) print the highest probability of the word by the bot
-
-    return long.unknown() if highest_prob_list[best_match] < 1 else best_match
-
-def get_reponse(user_input):
-        split_message = re.split(r'\s+|[,;?!.-]\s*', user_input.lower())
-        response = check_all_messages(split_message)
-        return response
+    #error
+    app.add_error_handler(error)
 
 
-#Testing the reponses
-while True:
-    print('Bot: ' + get_reponse(input('You: ')))
+    #polls the bot
+    print('Polling....')
+    app.run_polling(poll_interval=5)
+     
+
+
